@@ -9,5 +9,5 @@ import react from "@vitejs/plugin-react";
 // named "<username>.github.io" — set base back to "/" instead.)
 export default defineConfig({
   plugins: [react()],
-  base: "/brainsorter/",
+  base: "/Brainsorter/",
 });
