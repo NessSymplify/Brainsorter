@@ -15,7 +15,9 @@ const BUILD_STAMP = "build 68";
 // Host apps (the Claude mobile preview, PWAs, notched phones) overlay their
 // own chrome — a back button, status bar — across the top of the viewport.
 // Reserve space so the header controls are never underneath it.
-const TOP_INSET = 52;
+// No overlaid chat-preview back button to clear here — env(safe-area-inset-top)
+// alone already covers the real notch/status bar on device.
+const TOP_INSET = 0;
 
 // This build has no server-side proxy for the Anthropic API, so calling it
 // directly from the browser would either fail (no key) or expose a key to
@@ -2902,6 +2904,8 @@ export default function App() {
   const [confirmDialog, setConfirmDialog] = useState(null); // { title, body, confirmLabel, danger, onConfirm }
   const feedRef = useRef(null);
   const pagerRef = useRef(null);
+  const cardsScrollRef = useRef(null);
+  const listsScrollRef = useRef(null);
   const now = Date.now();
 
   // Since this runs in a browser tab rather than an installed app, there's no
@@ -2939,6 +2943,15 @@ export default function App() {
     el.scrollTo({ left: idx * el.clientWidth, behavior: "smooth" });
     setPage(idx);
   }, []);
+
+  // iOS's native "tap the status bar to scroll to top" only affects the
+  // document's own scroll — it does nothing for content in a nested
+  // overflow-y-auto div, which is what both the cards and lists pages use.
+  // This recreates the gesture manually against whichever page is active.
+  const scrollActiveToTop = useCallback(() => {
+    const el = page === 1 ? listsScrollRef.current : cardsScrollRef.current;
+    if (el) el.scrollTo({ top: 0, behavior: "smooth" });
+  }, [page]);
 
   // load
   useEffect(() => {
@@ -3473,6 +3486,17 @@ export default function App() {
             "#0E0C17",
         }}
       >
+        {/* Invisible tap target recreating iOS's "tap the status bar to
+            scroll to top" — z-45 sits above the header (z-40) but below
+            every overlay (all z-70+), so it's naturally inert whenever a
+            modal is open instead of needing to be conditionally rendered. */}
+        <button
+          onClick={scrollActiveToTop}
+          aria-label="Scroll to top"
+          className="fixed left-0 right-0 top-0"
+          style={{ height: "max(env(safe-area-inset-top, 0px), 20px)", zIndex: 45 }}
+        />
+
         {/* header */}
         <div
           className="absolute top-0 left-0 right-0 z-40 px-4 pb-2"
@@ -3681,6 +3705,7 @@ export default function App() {
         >
           {/* page 1 — cards */}
           <div
+            ref={cardsScrollRef}
             className="h-full w-full shrink-0 overflow-y-auto hide-scrollbar"
             style={{ scrollSnapAlign: "start" }}
           >
@@ -3729,6 +3754,7 @@ export default function App() {
 
           {/* page 2 — lists */}
           <div
+            ref={listsScrollRef}
             className="h-full w-full shrink-0 overflow-y-auto hide-scrollbar"
             style={{ scrollSnapAlign: "start" }}
           >
